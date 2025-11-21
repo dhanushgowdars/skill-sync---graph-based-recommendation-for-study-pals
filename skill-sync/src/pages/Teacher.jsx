@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { seedUsers } from '../data/seedData'; // We use the "Real" database here
+import { seedUsers } from '../data/seedData'; 
 import ForceGraph2D from 'react-force-graph-2d';
 import { Users, AlertTriangle, Search, LogIn, ShieldAlert } from 'lucide-react';
 
@@ -13,6 +13,7 @@ export default function Teacher() {
   // --- 1. THE LOGIN GATE ---
   const handleLogin = (e) => {
     e.preventDefault();
+    // Hardcoded credentials for the demo
     if (username === 'admin' && password === 'admin123') {
       setIsLoggedIn(true);
     } else {
@@ -137,12 +138,30 @@ export default function Teacher() {
              <ForceGraph2D
                 ref={graphRef}
                 graphData={graphData}
-                nodeLabel="name"
-                nodeColor={node => node.color}
-                nodeRelSize={6}
+                
+                // --- CUSTOM LABEL RENDERING ---
+                nodeCanvasObject={(node, ctx, globalScale) => {
+                  const label = node.name;
+                  const fontSize = 12/globalScale;
+                  
+                  // Draw Node Circle
+                  ctx.fillStyle = node.color;
+                  ctx.beginPath();
+                  ctx.arc(node.x, node.y, node.val / 4, 0, 2 * Math.PI, false);
+                  ctx.fill();
+
+                  // Draw Text Label
+                  ctx.font = `${fontSize}px Sans-Serif`;
+                  ctx.textAlign = 'center';
+                  ctx.textBaseline = 'middle';
+                  ctx.fillStyle = 'white';
+                  // Position text slightly below the node
+                  ctx.fillText(label, node.x, node.y + (node.val / 3) + 4);
+                }}
+
                 linkColor={() => '#334155'}
                 backgroundColor="#020617"
-                width={600} // Fixed width for stability in grid
+                width={600} // Fixed width for layout stability
                 height={450}
              />
           </div>

@@ -1,41 +1,61 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useUser } from '../../context/UserContext';
-import { LogOut, User } from 'lucide-react';
+import { LogOut, Home, LayoutDashboard, PieChart, School } from 'lucide-react';
 
 export default function Navbar() {
   const { user } = useUser();
-  const navigate = useNavigate();
+  const location = useLocation(); // This tells us "Where are we?"
+
+  // Helper to check if link is active
+  const isActive = (path) => location.pathname === path ? "text-primary bg-primary/10" : "text-slate-400 hover:text-white hover:bg-slate-800";
+  const baseClass = "flex items-center gap-2 px-4 py-2 rounded-full transition-all text-sm font-medium";
 
   return (
-    <nav className="sticky top-0 z-50 w-full border-b border-slate-800 bg-background/50 backdrop-blur-xl">
+    <nav className="sticky top-0 z-50 w-full border-b border-slate-800 bg-background/80 backdrop-blur-xl">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
-        {/* Logo */}
-        <Link to="/" className="flex items-center gap-2 font-bold text-xl">
-          <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white">
+        
+        {/* Logo (Clicking this also goes Home) */}
+        <Link to="/" className="flex items-center gap-2 font-bold text-xl group">
+          <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white group-hover:scale-110 transition-transform">
             S
           </div>
           <span className="text-white">SkillSync</span>
         </Link>
 
-        {/* Navigation Links (Only show if logged in) */}
+        {/* Navigation Links (Centered) */}
         {user.name && (
-          <div className="hidden md:flex items-center gap-6 text-sm font-medium text-slate-400">
-            <Link to="/dashboard" className="hover:text-primary transition-colors">Find Pals</Link>
-            <Link to="/stats" className="hover:text-primary transition-colors">My Stats</Link>
-            <Link to="/teacher" className="hover:text-primary transition-colors">Teacher View</Link>
+          <div className="hidden md:flex items-center gap-2">
+            
+            <Link to="/" className={`${baseClass} ${isActive('/')}`}>
+              <Home size={16} /> Home
+            </Link>
+
+            <Link to="/dashboard" className={`${baseClass} ${isActive('/dashboard')}`}>
+              <LayoutDashboard size={16} /> Find Pals
+            </Link>
+            
+            <Link to="/stats" className={`${baseClass} ${isActive('/stats')}`}>
+              <PieChart size={16} /> My Stats
+            </Link>
+            
+            <Link to="/teacher" className={`${baseClass} ${isActive('/teacher')}`}>
+              <School size={16} /> Teacher View
+            </Link>
+
           </div>
         )}
 
-        {/* User Profile / Login State */}
+        {/* User Profile / Logout */}
         <div className="flex items-center gap-4">
           {user.name ? (
-            <div className="flex items-center gap-3 bg-slate-900/50 border border-slate-800 py-1.5 px-3 rounded-full">
-              <div className="w-6 h-6 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center text-[10px] font-bold">
-                {user.name.charAt(0)}
-              </div>
-              <span className="text-sm font-medium text-slate-200">{user.name}</span>
-              <button onClick={() => { localStorage.clear(); window.location.reload(); }} className="text-slate-500 hover:text-red-400 ml-2">
-                <LogOut size={14} />
+            <div className="flex items-center gap-3 pl-4 border-l border-slate-800">
+              <span className="text-sm font-medium text-slate-200 hidden sm:block">{user.name}</span>
+              <button 
+                onClick={() => { localStorage.clear(); window.location.href = '/'; }} 
+                className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-400/10 rounded-full transition-colors"
+                title="Logout"
+              >
+                <LogOut size={18} />
               </button>
             </div>
           ) : (
