@@ -9,9 +9,7 @@ import Landing from './pages/Landing';
 import Onboarding from './pages/Onboarding';
 import Dashboard from './pages/Dashboard';
 import Stats from './pages/Stats';
-
-// Keep Teacher commented until the next step
-// import Teacher from './pages/Teacher';
+import Teacher from './pages/Teacher'; // <--- 1. IMPORT THE PAGE
 
 function App() {
   return (
@@ -26,7 +24,7 @@ function App() {
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/stats" element={<Stats />} />
               
-              {/* <Route path="/teacher" element={<Teacher />} /> */}
+              <Route path="/teacher" element={<Teacher />} /> {/* <--- 2. ADD THE ROUTE */}
             </Routes>
           </main>
         </div>
