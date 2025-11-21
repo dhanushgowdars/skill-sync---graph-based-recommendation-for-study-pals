@@ -23,31 +23,35 @@ export default function Teacher() {
         .then(res => res.json())
         .then(data => {
             setKpi({
-                total: data.total_students,
-                atRisk: data.at_risk_count,
-                avg: data.avg_skill
+                total: data.total_students || 0,
+                atRisk: data.at_risk_count || 0,
+                avg: data.avg_skill || 0
             });
-            setAtRiskList(data.at_risk_list);
+            setAtRiskList(data.at_risk_list || []);
+            
             // Create a full list for the graph (Healthy + At Risk)
-            // Since the backend only sends at_risk, we will mock some healthy ones for the graph visualization
-            // In a real app, you'd fetch ALL students.
+            // We add mock healthy students so the graph isn't empty, but now they have full data
             const healthyMock = [
-                { id: 101, name: "Rahul S", status: "Healthy" },
-                { id: 102, name: "Ananya R", status: "Healthy" },
-                { id: 103, name: "Sarah C", status: "Healthy" }
+                { id: 101, name: "Rahul S", dept: "CSE", status: "Healthy", avg_skill: 78 },
+                { id: 102, name: "Ananya R", dept: "ISE", status: "Healthy", avg_skill: 85 },
+                { id: 103, name: "Sarah C", dept: "ECE", status: "Healthy", avg_skill: 72 },
+                { id: 104, name: "Vikram M", dept: "CSE", status: "Healthy", avg_skill: 90 },
+                { id: 105, name: "Priya K", dept: "AIML", status: "Healthy", avg_skill: 88 }
             ];
-            setStudents([...data.at_risk_list, ...healthyMock]);
+            
+            // Combine real at-risk students with mock healthy students for the UI
+            setStudents([...(data.at_risk_list || []), ...healthyMock]);
         })
         .catch(err => console.error("Teacher API Error:", err));
     }
   }, [isLoggedIn]);
 
-  // PREPARE GRAPH DATA (Dynamic based on fetched students)
+  // PREPARE GRAPH DATA
   const graphData = {
     nodes: students.map(s => ({
       id: s.name,
       group: s.status === 'At-Risk' ? 'isolated' : 'healthy',
-      val: s.status === 'At-Risk' ? 20 : 15,
+      val: s.status === 'At-Risk' ? 20 : 10,
       color: s.status === 'At-Risk' ? '#ef4444' : '#3b82f6'
     })),
     links: students
@@ -68,16 +72,22 @@ export default function Teacher() {
     }
   };
 
-  // --- 3. INTERVENTION LOGIC (FIXED) ---
+  // --- 3. INTERVENTION LOGIC ---
   const handleIntervention = (type) => {
-    // Simulate API Call
     setTimeout(() => {
         alert(`✅ Successfully assigned a ${type} to ${interventionModal.name}. \nThey have been notified via Email.`);
         setInterventionModal(null);
         
         // Optimistic UI Update: Remove from At-Risk list locally
-        setAtRiskList(prev => prev.filter(s => s.name !== interventionModal.name));
-        setKpi(prev => ({ ...prev, atRisk: prev.atRisk - 1 }));
+        const updatedList = atRiskList.filter(s => s.name !== interventionModal.name);
+        setAtRiskList(updatedList);
+        
+        // Update the main student list to reflect the change (move to healthy for demo visual)
+        setStudents(prev => prev.map(s => 
+            s.name === interventionModal.name ? { ...s, status: "Healthy", color: '#3b82f6' } : s
+        ));
+        
+        setKpi(prev => ({ ...prev, atRisk: Math.max(0, prev.atRisk - 1) }));
     }, 500);
   };
 
@@ -190,14 +200,13 @@ export default function Teacher() {
             <h1 className="text-3xl font-bold text-white">Instructor Dashboard</h1>
             <p className="text-gray-400">Real-time analysis of student engagement and skill gaps.</p>
         </div>
-        {/* REMOVED: Export & Alert All buttons */}
       </div>
 
       {/* KPI CARDS */}
       <div className="grid md:grid-cols-4 gap-4">
-        <KpiCard title="Total Students" value={kpi.total} icon={<Users className="text-blue-400" />} />
-        <KpiCard title="At-Risk (Isolated)" value={kpi.atRisk} icon={<AlertTriangle className="text-red-400" />} color="border-red-500/50 bg-red-900/10" />
-        <KpiCard title="Avg Class Skill" value={`${kpi.avg}%`} icon={<TrendingUp className="text-green-400" />} />
+        <KpiCard title="Total Students" value={kpi.total || 0} icon={<Users className="text-blue-400" />} />
+        <KpiCard title="At-Risk (Isolated)" value={kpi.atRisk || 0} icon={<AlertTriangle className="text-red-400" />} color="border-red-500/50 bg-red-900/10" />
+        <KpiCard title="Avg Class Skill" value={`${kpi.avg || 0}%`} icon={<TrendingUp className="text-green-400" />} />
         <KpiCard title="Sessions Today" value="12" icon={<CheckCircle className="text-purple-400" />} />
       </div>
 
@@ -237,15 +246,14 @@ export default function Teacher() {
           </div>
         </div>
 
-        {/* RIGHT: SKILL GAPS & STUDENT LIST */}
+        {/* RIGHT: STUDENT TABLE */}
         <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden flex flex-col">
           <div className="p-4 border-b border-slate-800 bg-slate-900/50">
             <h3 className="font-bold text-white text-red-400 flex items-center gap-2">
-              <AlertTriangle size={18} /> Intervention Needed
+              <AlertTriangle size={18} /> At-Risk Students
             </h3>
           </div>
           
-          {/* Student Table */}
           <div className="flex-1 overflow-y-auto p-0">
              {atRiskList.length === 0 ? (
                  <div className="flex flex-col items-center justify-center h-full text-slate-500">
@@ -256,7 +264,7 @@ export default function Teacher() {
                  <table className="w-full text-left text-sm text-gray-400">
                     <thead className="bg-gray-950 text-gray-200 font-bold uppercase text-xs">
                         <tr>
-                            <th className="p-4">Name</th>
+                            <th className="p-4">Name / Dept</th>
                             <th className="p-4">Status</th>
                             <th className="p-4 text-right">Action</th>
                         </tr>
@@ -266,7 +274,10 @@ export default function Teacher() {
                             <tr key={student.id} className="hover:bg-gray-800/50 transition-colors">
                                 <td className="p-4 font-medium text-white">
                                     {student.name}
-                                    <div className="text-xs text-gray-500">{student.dept} • {student.avg_skill}% Avg</div>
+                                    {/* SAFEGUARDED VALUES */}
+                                    <div className="text-xs text-gray-500">
+                                        {student.dept || "General"} • {student.avg_skill || 0}% Avg
+                                    </div>
                                 </td>
                                 <td className="p-4">
                                     <span className="px-2 py-1 rounded text-xs font-bold bg-red-900/30 text-red-400 border border-red-500/30">
