@@ -1,14 +1,36 @@
 import { useState, useRef } from 'react';
-import { seedUsers } from '../data/seedData'; 
 import ForceGraph2D from 'react-force-graph-2d';
-import { Users, AlertTriangle, Search, LogIn, ShieldAlert } from 'lucide-react';
+import { Users, AlertTriangle, Search, LogIn, ShieldAlert, TrendingUp, CheckCircle, UserPlus, UserCheck, X } from 'lucide-react';
 
 export default function Teacher() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [interventionModal, setInterventionModal] = useState(null); // Stores the student object being helped
   const graphRef = useRef();
+
+  // --- LOCAL MOCK DATA FOR TEACHER VIEW ---
+  const STUDENTS = [
+    { id: 1, name: "David Lee", dept: "ECE", status: "At-Risk", connections: 0, avg_skill: 25 },
+    { id: 2, name: "Rahul Sharma", dept: "CSE", status: "Healthy", connections: 5, avg_skill: 65 },
+    { id: 3, name: "Ananya Reddy", dept: "ISE", status: "Healthy", connections: 8, avg_skill: 88 },
+    { id: 4, name: "Sarah Chen", dept: "CSE", status: "Healthy", connections: 4, avg_skill: 70 },
+  ];
+
+  // PREPARE GRAPH DATA
+  const graphData = {
+    nodes: STUDENTS.map(s => ({
+      id: s.name,
+      group: s.status === 'At-Risk' ? 'isolated' : 'healthy',
+      val: s.status === 'At-Risk' ? 20 : 15
+    })),
+    links: [
+      { source: "Rahul Sharma", target: "Sarah Chen" },
+      { source: "Rahul Sharma", target: "Ananya Reddy" },
+      { source: "Ananya Reddy", target: "Sarah Chen" }
+    ]
+  };
 
   // --- 1. THE LOGIN GATE ---
   const handleLogin = (e) => {
@@ -21,39 +43,17 @@ export default function Teacher() {
     }
   };
 
-  // --- 2. DATA PREP FOR "GOD VIEW" ---
-  // Identify "At Risk" students (Low connections or Low skills)
-  const atRiskStudents = seedUsers.filter(u => u.connections < 3);
-  
-  // Prepare Graph Data: Show ALL students
-  const nodes = seedUsers.map(u => ({
-    id: u.id,
-    name: u.name,
-    val: u.connections < 3 ? 15 : 10, // Make at-risk nodes slightly bigger
-    color: u.connections < 3 ? '#ef4444' : '#3b82f6', // RED for Risk, BLUE for Safe
-    ...u
-  }));
-
-  const links = []; 
-  // In a real app, we'd map actual connections. 
-  // For this demo, we simulate links for healthy students and 0 links for at-risk ones.
-  seedUsers.forEach((u, i) => {
-    if (u.connections >= 3) {
-      // Create a ring of connections for healthy students
-      const nextUser = seedUsers[(i + 1) % seedUsers.length];
-      if (nextUser.connections >= 3) {
-        links.push({ source: u.id, target: nextUser.id, color: '#334155' });
-      }
-    }
-  });
-  
-  const graphData = { nodes, links };
+  // --- 2. INTERVENTION LOGIC ---
+  const handleIntervention = (type) => {
+    alert(`✅ Successfully assigned a ${type} to ${interventionModal.name}. They will receive a notification.`);
+    setInterventionModal(null);
+  };
 
   // --- RENDER: LOGIN SCREEN ---
   if (!isLoggedIn) {
     return (
-      <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center bg-background p-4">
-        <div className="w-full max-w-md bg-card border border-slate-800 p-8 rounded-2xl shadow-2xl">
+      <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center bg-background p-4 bg-gray-950 text-white">
+        <div className="w-full max-w-md bg-gray-900 border border-slate-800 p-8 rounded-2xl shadow-2xl">
           <div className="flex justify-center mb-6">
             <div className="p-3 bg-blue-500/10 rounded-full text-blue-500">
                <ShieldAlert size={40} />
@@ -67,7 +67,7 @@ export default function Teacher() {
                <label className="text-xs font-bold text-slate-500 uppercase">Username</label>
                <input 
                  type="text" 
-                 className="w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:border-blue-500 focus:outline-none"
+                 className="w-full mt-1 bg-slate-950 border border-slate-700 rounded-lg px-4 py-3 text-white focus:border-blue-500 focus:outline-none"
                  value={username}
                  onChange={e => setUsername(e.target.value)}
                />
@@ -76,7 +76,7 @@ export default function Teacher() {
                <label className="text-xs font-bold text-slate-500 uppercase">Password</label>
                <input 
                  type="password" 
-                 className="w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:border-blue-500 focus:outline-none"
+                 className="w-full mt-1 bg-slate-950 border border-slate-700 rounded-lg px-4 py-3 text-white focus:border-blue-500 focus:outline-none"
                  value={password}
                  onChange={e => setPassword(e.target.value)}
                />
@@ -96,37 +96,86 @@ export default function Teacher() {
 
   // --- RENDER: DASHBOARD (If Logged In) ---
   return (
-    <div className="min-h-[calc(100vh-4rem)] bg-background p-6 space-y-6">
+    <div className="min-h-screen bg-gray-950 p-6 space-y-6 text-white relative">
       
-      {/* Top Stats */}
-      <div className="grid md:grid-cols-3 gap-4">
-        <div className="bg-card border border-slate-800 p-5 rounded-xl flex items-center gap-4">
-          <div className="p-3 bg-blue-500/10 text-blue-500 rounded-lg"><Users /></div>
-          <div>
-            <p className="text-slate-400 text-xs font-bold uppercase">Total Students</p>
-            <h3 className="text-2xl font-bold text-white">{seedUsers.length}</h3>
-          </div>
+      {/* INTERVENTION MODAL */}
+      {interventionModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-gray-900 border border-slate-700 rounded-2xl p-6 max-w-md w-full shadow-2xl relative">
+                <button 
+                    onClick={() => setInterventionModal(null)}
+                    className="absolute top-4 right-4 text-gray-500 hover:text-white"
+                >
+                    <X className="w-5 h-5" />
+                </button>
+                
+                <div className="text-center mb-6">
+                    <div className="mx-auto w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mb-4">
+                        <AlertTriangle className="w-8 h-8 text-red-500" />
+                    </div>
+                    <h2 className="text-xl font-bold text-white">Intervene for {interventionModal.name}</h2>
+                    <p className="text-slate-400 text-sm mt-1">
+                        Student has 0 connections and low skill avg ({interventionModal.avg_skill}%).
+                    </p>
+                </div>
+
+                <div className="space-y-3">
+                    <button 
+                        onClick={() => handleIntervention('Mentor')}
+                        className="w-full bg-purple-600 hover:bg-purple-500 text-white p-4 rounded-xl flex items-center justify-between group transition-colors"
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-white/20 rounded-lg"><UserCheck className="w-5 h-5" /></div>
+                            <div className="text-left">
+                                <p className="font-bold">Assign a Mentor</p>
+                                <p className="text-xs text-purple-200">Match with a High-Performing Senior</p>
+                            </div>
+                        </div>
+                        <span className="text-xs bg-white/20 px-2 py-1 rounded">Best for Guidance</span>
+                    </button>
+
+                    <button 
+                        onClick={() => handleIntervention('Peer Group')}
+                        className="w-full bg-emerald-600 hover:bg-emerald-500 text-white p-4 rounded-xl flex items-center justify-between group transition-colors"
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-white/20 rounded-lg"><UserPlus className="w-5 h-5" /></div>
+                            <div className="text-left">
+                                <p className="font-bold">Assign to Peer Group</p>
+                                <p className="text-xs text-emerald-200">Add to an existing study circle</p>
+                            </div>
+                        </div>
+                        <span className="text-xs bg-white/20 px-2 py-1 rounded">Best for Social</span>
+                    </button>
+                </div>
+            </div>
         </div>
-        <div className="bg-card border border-slate-800 p-5 rounded-xl flex items-center gap-4">
-          <div className="p-3 bg-red-500/10 text-red-500 rounded-lg"><AlertTriangle /></div>
-          <div>
-            <p className="text-slate-400 text-xs font-bold uppercase">At-Risk (Isolated)</p>
-            <h3 className="text-2xl font-bold text-white">{atRiskStudents.length}</h3>
-          </div>
+      )}
+
+      {/* HEADER */}
+      <div className="flex justify-between items-end mb-8">
+        <div>
+            <h1 className="text-3xl font-bold text-white">Instructor Dashboard</h1>
+            <p className="text-gray-400">Real-time analysis of student engagement and skill gaps.</p>
         </div>
-        <div className="bg-card border border-slate-800 p-5 rounded-xl flex items-center gap-4">
-          <div className="p-3 bg-green-500/10 text-green-500 rounded-lg"><Search /></div>
-          <div>
-            <p className="text-slate-400 text-xs font-bold uppercase">Avg Engagement</p>
-            <h3 className="text-2xl font-bold text-white">78%</h3>
-          </div>
+        <div className="flex gap-3">
+            <button className="bg-gray-800 text-white px-4 py-2 rounded-lg border border-gray-700 hover:bg-gray-700">Export Report</button>
+            <button className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-indigo-500">Alert All At-Risk</button>
         </div>
+      </div>
+
+      {/* KPI CARDS */}
+      <div className="grid md:grid-cols-4 gap-4">
+        <KpiCard title="Total Students" value={STUDENTS.length} icon={<Users className="text-blue-400" />} />
+        <KpiCard title="At-Risk (Isolated)" value={STUDENTS.filter(s => s.status === 'At-Risk').length} icon={<AlertTriangle className="text-red-400" />} color="border-red-500/50 bg-red-900/10" />
+        <KpiCard title="Avg Class Skill" value="68%" icon={<TrendingUp className="text-green-400" />} />
+        <KpiCard title="Sessions Today" value="12" icon={<CheckCircle className="text-purple-400" />} />
       </div>
 
       <div className="grid md:grid-cols-2 gap-6 h-[500px]">
         
         {/* LEFT: The "God View" Graph */}
-        <div className="bg-card border border-slate-800 rounded-2xl overflow-hidden flex flex-col">
+        <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden flex flex-col">
           <div className="p-4 border-b border-slate-800 bg-slate-900/50 flex justify-between items-center">
             <h3 className="font-bold text-white">Class Network Topology</h3>
             <div className="flex gap-3 text-xs">
@@ -141,13 +190,13 @@ export default function Teacher() {
                 
                 // --- CUSTOM LABEL RENDERING ---
                 nodeCanvasObject={(node, ctx, globalScale) => {
-                  const label = node.name;
+                  const label = node.id;
                   const fontSize = 12/globalScale;
                   
                   // Draw Node Circle
-                  ctx.fillStyle = node.color;
+                  ctx.fillStyle = node.group === 'isolated' ? '#ef4444' : '#3b82f6';
                   ctx.beginPath();
-                  ctx.arc(node.x, node.y, node.val / 4, 0, 2 * Math.PI, false);
+                  ctx.arc(node.x, node.y, 5, 0, 2 * Math.PI, false);
                   ctx.fill();
 
                   // Draw Text Label
@@ -155,8 +204,7 @@ export default function Teacher() {
                   ctx.textAlign = 'center';
                   ctx.textBaseline = 'middle';
                   ctx.fillStyle = 'white';
-                  // Position text slightly below the node
-                  ctx.fillText(label, node.x, node.y + (node.val / 3) + 4);
+                  ctx.fillText(label, node.x, node.y + 8);
                 }}
 
                 linkColor={() => '#334155'}
@@ -167,33 +215,50 @@ export default function Teacher() {
           </div>
         </div>
 
-        {/* RIGHT: The "At-Risk" Table */}
-        <div className="bg-card border border-slate-800 rounded-2xl overflow-hidden flex flex-col">
+        {/* RIGHT: SKILL GAPS & STUDENT LIST */}
+        <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden flex flex-col">
           <div className="p-4 border-b border-slate-800 bg-slate-900/50">
             <h3 className="font-bold text-white text-red-400 flex items-center gap-2">
               <AlertTriangle size={18} /> Intervention Needed
             </h3>
           </div>
-          <div className="flex-1 overflow-y-auto p-4 space-y-3">
-            {atRiskStudents.map(student => (
-              <div key={student.id} className="flex items-center justify-between p-4 bg-slate-900/50 border border-slate-800 rounded-xl hover:border-red-500/30 transition-colors">
-                <div className="flex items-center gap-3">
-                  <img src={student.avatar} alt={student.name} className="w-10 h-10 rounded-full bg-slate-800" />
-                  <div>
-                    <h4 className="font-bold text-white">{student.name}</h4>
-                    <p className="text-xs text-slate-400">{student.dept} • {student.connections} Connections</p>
-                  </div>
-                </div>
-                <button className="px-3 py-1.5 bg-red-500/10 text-red-400 text-xs font-bold rounded-lg border border-red-500/20 hover:bg-red-500 hover:text-white transition-all">
-                  Alert Mentor
-                </button>
-              </div>
-            ))}
-            {atRiskStudents.length === 0 && (
-              <div className="text-center text-slate-500 mt-10">
-                All students are well connected!
-              </div>
-            )}
+          
+          {/* Student Table */}
+          <div className="flex-1 overflow-y-auto p-0">
+             <table className="w-full text-left text-sm text-gray-400">
+                <thead className="bg-gray-950 text-gray-200 font-bold uppercase text-xs">
+                    <tr>
+                        <th className="p-4">Name</th>
+                        <th className="p-4">Status</th>
+                        <th className="p-4 text-right">Action</th>
+                    </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-800">
+                    {STUDENTS.map(student => (
+                        <tr key={student.id} className="hover:bg-gray-800/50 transition-colors">
+                            <td className="p-4 font-medium text-white">
+                                {student.name}
+                                <div className="text-xs text-gray-500">{student.dept} • {student.avg_skill}% Avg</div>
+                            </td>
+                            <td className="p-4">
+                                <span className={`px-2 py-1 rounded text-xs font-bold ${student.status === 'At-Risk' ? 'bg-red-900/30 text-red-400 border border-red-500/30' : 'bg-green-900/30 text-green-400 border border-green-500/30'}`}>
+                                    {student.status}
+                                </span>
+                            </td>
+                            <td className="p-4 text-right">
+                                {student.status === 'At-Risk' && (
+                                    <button 
+                                        onClick={() => setInterventionModal(student)}
+                                        className="text-xs bg-red-600 hover:bg-red-500 text-white px-3 py-1 rounded flex items-center gap-1 ml-auto transition-colors"
+                                    >
+                                        <ShieldAlert className="w-3 h-3" /> Intervene
+                                    </button>
+                                )}
+                            </td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
           </div>
         </div>
 
@@ -201,3 +266,14 @@ export default function Teacher() {
     </div>
   );
 }
+
+// Helper
+const KpiCard = ({ title, value, icon, color = "bg-gray-900 border-gray-800" }) => (
+    <div className={`p-5 rounded-xl border ${color} flex items-center gap-4`}>
+        <div className="p-3 bg-gray-950 rounded-lg border border-gray-800">{icon}</div>
+        <div>
+            <p className="text-gray-400 text-xs uppercase font-bold">{title}</p>
+            <p className="text-2xl font-bold text-white">{value}</p>
+        </div>
+    </div>
+);
