@@ -5,18 +5,7 @@
 body {
   background-color: #0f1117;
   color: white;
-  font-family: 'Inter', sans-serif;
-  overflow-x: hidden; /* Prevent side scroll */
-}
-
-/* Custom Scrollbar for that "Hacker" look */
-::-webkit-scrollbar {
-  width: 8px;
-}
-::-webkit-scrollbar-track {
-  background: #0f1117;
-}
-::-webkit-scrollbar-thumb {
-  background: #334155;
-  border-radius: 4px;
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
 }
