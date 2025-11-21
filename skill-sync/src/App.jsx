@@ -7,10 +7,10 @@ import Navbar from './components/Layout/Navbar';
 // Pages
 import Landing from './pages/Landing';
 import Onboarding from './pages/Onboarding';
-import Dashboard from './pages/Dashboard'; 
+import Dashboard from './pages/Dashboard';
+import Stats from './pages/Stats';
 
-// Keep these commented until we build them next
-// import Stats from './pages/Stats';
+// Keep Teacher commented until the next step
 // import Teacher from './pages/Teacher';
 
 function App() {
@@ -24,8 +24,8 @@ function App() {
               <Route path="/" element={<Landing />} />
               <Route path="/onboard" element={<Onboarding />} />
               <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/stats" element={<Stats />} />
               
-              {/* <Route path="/stats" element={<Stats />} /> */}
               {/* <Route path="/teacher" element={<Teacher />} /> */}
             </Routes>
           </main>
