@@ -1,122 +1,129 @@
-import { useUser } from '../context/UserContext';
-import { Trophy, Star, Clock, Target, Flame, Medal } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Trophy, Star, Medal } from 'lucide-react'; 
 
 export default function Stats() {
-  const { user } = useUser();
+  const [stats, setStats] = useState(null);
 
-  // 1. Calculate Real Stats
-  const totalSkills = user.skills.length;
-  const avgProficiency = totalSkills > 0 
-    ? Math.round(user.skills.reduce((acc, curr) => acc + curr.proficiency, 0) / totalSkills) 
-    : 0;
-  const guruCount = user.skills.filter(s => s.proficiency > 80).length;
-  const totalInterests = user.interests.length;
+  useEffect(() => {
+    // --- YOUR PROFILE DATA (FALLBACK) ---
+    const myProfile = {
+        name: "Manoj",
+        level: "Level 5 Scholar",
+        totalSkills: 3,
+        avgProficiency: 75,
+        guruBadges: 1,
+        // Removed streak
+        badges: [
+            { 
+                name: "Python", 
+                type: "Specialist", 
+                level: 59, 
+                color: "text-yellow-400", 
+                border: "border-yellow-500/50", 
+                bg: "bg-yellow-500/10", 
+                bar: "bg-yellow-400" // Explicit bar color
+            },
+            { 
+                name: "Figma", 
+                type: "Guru", 
+                level: 81, 
+                color: "text-green-400", 
+                border: "border-green-500/50", 
+                bg: "bg-green-500/10", 
+                bar: "bg-green-400" // Explicit bar color
+            },
+            { 
+                name: "React", 
+                type: "Learner", 
+                level: 30, 
+                color: "text-blue-400", 
+                border: "border-blue-500/50", 
+                bg: "bg-blue-500/10", 
+                bar: "bg-blue-400" // Explicit bar color
+            }
+        ],
+        // Removed sessions
+    };
 
-  // 2. Mock Data for "Activity" (Hardcoded for demo)
-  const recentSessions = [
-    { partner: "Rahul Sharma", topic: "Python Basics", duration: "45 min", date: "Today" },
-    { partner: "Sarah Chen", topic: "React Hooks", duration: "1 hr 20 min", date: "Yesterday" },
-    { partner: "David Lee", topic: "System Design", duration: "30 min", date: "Nov 18" },
-  ];
+    // Attempt to connect to Backend (Simulated fetch for now)
+    fetch('http://localhost:5000/api/recommend/1')
+      .then(() => {
+          // Connection Success: For now, we keep using the profile object for UI consistency
+          setStats(myProfile);
+      })
+      .catch(() => {
+          console.log("Backend offline, loading local profile");
+          setStats(myProfile);
+      });
+  }, []);
+
+  if (!stats) return <div className="text-white p-10">Loading Stats...</div>;
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] p-6 bg-background space-y-8">
-      
+    <div className="min-h-[calc(100vh-4rem)] p-6 bg-gray-950 space-y-8">
       {/* Header */}
       <div className="flex items-center gap-4 mb-8">
-        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-2xl font-bold">
-          {user.name.charAt(0)}
+        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center text-3xl font-bold text-white shadow-lg shadow-purple-900/20">
+          {stats.name.charAt(0)}
         </div>
         <div>
-          <h1 className="text-3xl font-bold text-white">{user.name}</h1>
-          <p className="text-slate-400">{user.dept} Student • Level 4 Scholar</p>
+          <h1 className="text-3xl font-bold text-white">{stats.name}</h1>
+          <p className="text-slate-400 font-medium">{stats.level}</p>
         </div>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[
-          { label: "Total Skills", val: totalSkills, icon: Target, color: "text-blue-400", bg: "bg-blue-400/10" },
-          { label: "Avg Proficiency", val: `${avgProficiency}%`, icon: Star, color: "text-yellow-400", bg: "bg-yellow-400/10" },
-          { label: "Guru Badges", val: guruCount, icon: Trophy, color: "text-purple-400", bg: "bg-purple-400/10" },
-          { label: "Study Streaks", val: "3 Days", icon: Flame, color: "text-orange-400", bg: "bg-orange-400/10" },
-        ].map((stat, idx) => (
-          <div key={idx} className="bg-card border border-slate-800 p-5 rounded-xl flex items-center gap-4">
-            <div className={`p-3 rounded-lg ${stat.bg} ${stat.color}`}>
-              <stat.icon size={24} />
-            </div>
-            <div>
-              <p className="text-slate-400 text-xs uppercase font-bold">{stat.label}</p>
-              <p className="text-2xl font-bold text-white">{stat.val}</p>
-            </div>
-          </div>
-        ))}
+      {/* Stats Grid (Removed Streak) */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <StatCard label="Total Skills" val={stats.totalSkills} icon={Trophy} color="text-blue-400" bg="bg-blue-500/10" border="border-blue-500/20" />
+        <StatCard label="Avg Proficiency" val={`${stats.avgProficiency}%`} icon={Star} color="text-yellow-400" bg="bg-yellow-500/10" border="border-yellow-500/20" />
+        <StatCard label="Guru Badges" val={stats.guruBadges} icon={Medal} color="text-purple-400" bg="bg-purple-500/10" border="border-purple-500/20" />
       </div>
 
-      <div className="grid md:grid-cols-2 gap-6">
-        
-        {/* BADGES SECTION (Dynamic) */}
-        <div className="bg-card border border-slate-800 rounded-2xl p-6">
-          <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-            <Medal className="text-yellow-500" /> Earned Badges
-          </h2>
-          <div className="space-y-4">
-            {user.skills.length === 0 && <p className="text-slate-500 italic">Add skills to earn badges!</p>}
-            
-            {user.skills.map((skill, idx) => (
-              <div key={idx} className="flex items-center gap-4 p-3 rounded-xl bg-slate-900/50 border border-slate-800">
-                {/* Badge Icon Logic */}
-                <div className={`w-12 h-12 rounded-full flex items-center justify-center border-2 shadow-lg text-xl
-                  ${skill.proficiency > 80 ? 'bg-yellow-500/20 border-yellow-500 text-yellow-500' : 
-                    skill.proficiency > 40 ? 'bg-slate-300/20 border-slate-300 text-slate-300' : 
-                    'bg-orange-700/20 border-orange-700 text-orange-700'}`
-                }>
-                  {skill.proficiency > 80 ? '🥇' : skill.proficiency > 40 ? '🥈' : '🥉'}
-                </div>
-                
-                <div>
-                  <h3 className="font-bold text-white text-lg">{skill.name} {skill.proficiency > 80 ? "Guru" : "Specialist"}</h3>
-                  <p className="text-xs text-slate-400">Proficiency: {skill.proficiency}%</p>
-                </div>
-                
-                <div className="ml-auto text-xs font-bold px-2 py-1 rounded bg-slate-800 text-slate-300">
-                  {skill.proficiency > 80 ? "Expert" : "Learning"}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+      {/* Badges Section (Expanded & Highlighted) */}
+      <div className="w-full">
+        <div className="bg-gray-900/50 border border-slate-800 rounded-2xl p-6 shadow-xl">
+            <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+                <Medal className="text-yellow-500" /> Earned Badges
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {stats.badges.map((badge, idx) => (
+                    <div key={idx} className={`relative overflow-hidden flex flex-col p-5 rounded-xl border transition-all hover:-translate-y-1 hover:shadow-lg ${badge.bg} ${badge.border}`}>
+                        
+                        <div className="flex items-start justify-between mb-4">
+                            <div className={`w-12 h-12 rounded-full flex items-center justify-center border-2 shadow-inner text-2xl bg-gray-900/40 ${badge.border} ${badge.color}`}>
+                                {badge.level > 80 ? '🥇' : badge.level > 50 ? '🥈' : '🥉'}
+                            </div>
+                            <span className={`text-xs font-bold px-3 py-1 rounded-full bg-black/20 uppercase tracking-wider ${badge.color}`}>
+                                {badge.type}
+                            </span>
+                        </div>
 
-        {/* RECENT ACTIVITY (Mock) */}
-        <div className="bg-card border border-slate-800 rounded-2xl p-6">
-          <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-            <Clock className="text-blue-500" /> Recent Sessions
-          </h2>
-          <div className="space-y-0">
-            {recentSessions.map((session, idx) => (
-              <div key={idx} className="flex items-center justify-between p-4 border-b border-slate-800 last:border-0 hover:bg-slate-800/30 transition-colors">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-sm font-bold text-slate-400">
-                    {session.partner.charAt(0)}
-                  </div>
-                  <div>
-                    <p className="font-medium text-white">{session.topic}</p>
-                    <p className="text-xs text-slate-500">with {session.partner}</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm font-medium text-blue-400">{session.duration}</p>
-                  <p className="text-xs text-slate-600">{session.date}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-          <button className="w-full mt-4 py-2 text-sm text-slate-400 hover:text-white border border-slate-800 rounded-lg hover:bg-slate-800 transition-colors">
-            View All History
-          </button>
+                        <div>
+                            <h3 className="font-bold text-white text-xl mb-1">{badge.name}</h3>
+                            <div className="flex justify-between items-end mb-2">
+                                <span className="text-xs text-slate-400">Proficiency</span>
+                                <span className={`text-lg font-bold ${badge.color}`}>{badge.level}%</span>
+                            </div>
+                            {/* Progress Bar */}
+                            <div className="w-full h-2 bg-black/30 rounded-full overflow-hidden">
+                                <div className={`h-full rounded-full ${badge.bar}`} style={{ width: `${badge.level}%` }}></div>
+                            </div>
+                        </div>
+                    </div>
+                ))}
+            </div>
         </div>
-
       </div>
     </div>
   );
 }
+
+const StatCard = ({ label, val, icon: Icon, color, bg, border }) => (
+  <div className={`p-6 rounded-xl flex items-center gap-5 border ${border} ${bg} transition-all hover:bg-opacity-70`}>
+    <div className={`p-3 rounded-xl bg-gray-950/50 ${color} shadow-sm`}><Icon size={28} /></div>
+    <div>
+      <p className="text-slate-400 text-xs uppercase font-bold tracking-wider mb-1">{label}</p>
+      <p className="text-3xl font-black text-white">{val}</p>
+    </div>
+  </div>
+);

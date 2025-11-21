@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import ForceGraph2D from 'react-force-graph-2d';
 import { Users, AlertTriangle, Search, LogIn, ShieldAlert, TrendingUp, CheckCircle, UserPlus, UserCheck, X } from 'lucide-react';
 
@@ -7,35 +7,60 @@ export default function Teacher() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [interventionModal, setInterventionModal] = useState(null); // Stores the student object being helped
+  
+  // State for Real Data
+  const [students, setStudents] = useState([]);
+  const [atRiskList, setAtRiskList] = useState([]);
+  const [kpi, setKpi] = useState({ total: 0, atRisk: 0, avg: 0 });
+  
+  const [interventionModal, setInterventionModal] = useState(null); 
   const graphRef = useRef();
 
-  // --- LOCAL MOCK DATA FOR TEACHER VIEW ---
-  const STUDENTS = [
-    { id: 1, name: "David Lee", dept: "ECE", status: "At-Risk", connections: 0, avg_skill: 25 },
-    { id: 2, name: "Rahul Sharma", dept: "CSE", status: "Healthy", connections: 5, avg_skill: 65 },
-    { id: 3, name: "Ananya Reddy", dept: "ISE", status: "Healthy", connections: 8, avg_skill: 88 },
-    { id: 4, name: "Sarah Chen", dept: "CSE", status: "Healthy", connections: 4, avg_skill: 70 },
-  ];
+  // --- 1. FETCH DATA FROM BACKEND ---
+  useEffect(() => {
+    if (isLoggedIn) {
+        fetch('http://localhost:5000/api/teacher/stats')
+        .then(res => res.json())
+        .then(data => {
+            setKpi({
+                total: data.total_students,
+                atRisk: data.at_risk_count,
+                avg: data.avg_skill
+            });
+            setAtRiskList(data.at_risk_list);
+            // Create a full list for the graph (Healthy + At Risk)
+            // Since the backend only sends at_risk, we will mock some healthy ones for the graph visualization
+            // In a real app, you'd fetch ALL students.
+            const healthyMock = [
+                { id: 101, name: "Rahul S", status: "Healthy" },
+                { id: 102, name: "Ananya R", status: "Healthy" },
+                { id: 103, name: "Sarah C", status: "Healthy" }
+            ];
+            setStudents([...data.at_risk_list, ...healthyMock]);
+        })
+        .catch(err => console.error("Teacher API Error:", err));
+    }
+  }, [isLoggedIn]);
 
-  // PREPARE GRAPH DATA
+  // PREPARE GRAPH DATA (Dynamic based on fetched students)
   const graphData = {
-    nodes: STUDENTS.map(s => ({
+    nodes: students.map(s => ({
       id: s.name,
       group: s.status === 'At-Risk' ? 'isolated' : 'healthy',
-      val: s.status === 'At-Risk' ? 20 : 15
+      val: s.status === 'At-Risk' ? 20 : 15,
+      color: s.status === 'At-Risk' ? '#ef4444' : '#3b82f6'
     })),
-    links: [
-      { source: "Rahul Sharma", target: "Sarah Chen" },
-      { source: "Rahul Sharma", target: "Ananya Reddy" },
-      { source: "Ananya Reddy", target: "Sarah Chen" }
-    ]
+    links: students
+        .filter(s => s.status === 'Healthy')
+        .map((s, i, arr) => ({
+            source: s.name,
+            target: arr[(i + 1) % arr.length].name // Link healthy students in a ring
+        }))
   };
 
-  // --- 1. THE LOGIN GATE ---
+  // --- 2. LOGIN LOGIC ---
   const handleLogin = (e) => {
     e.preventDefault();
-    // Hardcoded credentials for the demo
     if (username === 'admin' && password === 'admin123') {
       setIsLoggedIn(true);
     } else {
@@ -43,10 +68,17 @@ export default function Teacher() {
     }
   };
 
-  // --- 2. INTERVENTION LOGIC ---
+  // --- 3. INTERVENTION LOGIC (FIXED) ---
   const handleIntervention = (type) => {
-    alert(`✅ Successfully assigned a ${type} to ${interventionModal.name}. They will receive a notification.`);
-    setInterventionModal(null);
+    // Simulate API Call
+    setTimeout(() => {
+        alert(`✅ Successfully assigned a ${type} to ${interventionModal.name}. \nThey have been notified via Email.`);
+        setInterventionModal(null);
+        
+        // Optimistic UI Update: Remove from At-Risk list locally
+        setAtRiskList(prev => prev.filter(s => s.name !== interventionModal.name));
+        setKpi(prev => ({ ...prev, atRisk: prev.atRisk - 1 }));
+    }, 500);
   };
 
   // --- RENDER: LOGIN SCREEN ---
@@ -101,7 +133,7 @@ export default function Teacher() {
       {/* INTERVENTION MODAL */}
       {interventionModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-gray-900 border border-slate-700 rounded-2xl p-6 max-w-md w-full shadow-2xl relative">
+            <div className="bg-gray-900 border border-slate-700 rounded-2xl p-6 max-w-md w-full shadow-2xl relative animate-in fade-in zoom-in duration-200">
                 <button 
                     onClick={() => setInterventionModal(null)}
                     className="absolute top-4 right-4 text-gray-500 hover:text-white"
@@ -158,17 +190,14 @@ export default function Teacher() {
             <h1 className="text-3xl font-bold text-white">Instructor Dashboard</h1>
             <p className="text-gray-400">Real-time analysis of student engagement and skill gaps.</p>
         </div>
-        <div className="flex gap-3">
-            <button className="bg-gray-800 text-white px-4 py-2 rounded-lg border border-gray-700 hover:bg-gray-700">Export Report</button>
-            <button className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-indigo-500">Alert All At-Risk</button>
-        </div>
+        {/* REMOVED: Export & Alert All buttons */}
       </div>
 
       {/* KPI CARDS */}
       <div className="grid md:grid-cols-4 gap-4">
-        <KpiCard title="Total Students" value={STUDENTS.length} icon={<Users className="text-blue-400" />} />
-        <KpiCard title="At-Risk (Isolated)" value={STUDENTS.filter(s => s.status === 'At-Risk').length} icon={<AlertTriangle className="text-red-400" />} color="border-red-500/50 bg-red-900/10" />
-        <KpiCard title="Avg Class Skill" value="68%" icon={<TrendingUp className="text-green-400" />} />
+        <KpiCard title="Total Students" value={kpi.total} icon={<Users className="text-blue-400" />} />
+        <KpiCard title="At-Risk (Isolated)" value={kpi.atRisk} icon={<AlertTriangle className="text-red-400" />} color="border-red-500/50 bg-red-900/10" />
+        <KpiCard title="Avg Class Skill" value={`${kpi.avg}%`} icon={<TrendingUp className="text-green-400" />} />
         <KpiCard title="Sessions Today" value="12" icon={<CheckCircle className="text-purple-400" />} />
       </div>
 
@@ -187,29 +216,22 @@ export default function Teacher() {
              <ForceGraph2D
                 ref={graphRef}
                 graphData={graphData}
-                
-                // --- CUSTOM LABEL RENDERING ---
                 nodeCanvasObject={(node, ctx, globalScale) => {
                   const label = node.id;
                   const fontSize = 12/globalScale;
-                  
-                  // Draw Node Circle
-                  ctx.fillStyle = node.group === 'isolated' ? '#ef4444' : '#3b82f6';
+                  ctx.fillStyle = node.color;
                   ctx.beginPath();
                   ctx.arc(node.x, node.y, 5, 0, 2 * Math.PI, false);
                   ctx.fill();
-
-                  // Draw Text Label
                   ctx.font = `${fontSize}px Sans-Serif`;
                   ctx.textAlign = 'center';
                   ctx.textBaseline = 'middle';
                   ctx.fillStyle = 'white';
                   ctx.fillText(label, node.x, node.y + 8);
                 }}
-
                 linkColor={() => '#334155'}
                 backgroundColor="#020617"
-                width={600} // Fixed width for layout stability
+                width={600}
                 height={450}
              />
           </div>
@@ -225,40 +247,45 @@ export default function Teacher() {
           
           {/* Student Table */}
           <div className="flex-1 overflow-y-auto p-0">
-             <table className="w-full text-left text-sm text-gray-400">
-                <thead className="bg-gray-950 text-gray-200 font-bold uppercase text-xs">
-                    <tr>
-                        <th className="p-4">Name</th>
-                        <th className="p-4">Status</th>
-                        <th className="p-4 text-right">Action</th>
-                    </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-800">
-                    {STUDENTS.map(student => (
-                        <tr key={student.id} className="hover:bg-gray-800/50 transition-colors">
-                            <td className="p-4 font-medium text-white">
-                                {student.name}
-                                <div className="text-xs text-gray-500">{student.dept} • {student.avg_skill}% Avg</div>
-                            </td>
-                            <td className="p-4">
-                                <span className={`px-2 py-1 rounded text-xs font-bold ${student.status === 'At-Risk' ? 'bg-red-900/30 text-red-400 border border-red-500/30' : 'bg-green-900/30 text-green-400 border border-green-500/30'}`}>
-                                    {student.status}
-                                </span>
-                            </td>
-                            <td className="p-4 text-right">
-                                {student.status === 'At-Risk' && (
+             {atRiskList.length === 0 ? (
+                 <div className="flex flex-col items-center justify-center h-full text-slate-500">
+                     <CheckCircle className="w-10 h-10 mb-2 text-green-500/50" />
+                     <p>All students are healthy!</p>
+                 </div>
+             ) : (
+                 <table className="w-full text-left text-sm text-gray-400">
+                    <thead className="bg-gray-950 text-gray-200 font-bold uppercase text-xs">
+                        <tr>
+                            <th className="p-4">Name</th>
+                            <th className="p-4">Status</th>
+                            <th className="p-4 text-right">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-800">
+                        {atRiskList.map(student => (
+                            <tr key={student.id} className="hover:bg-gray-800/50 transition-colors">
+                                <td className="p-4 font-medium text-white">
+                                    {student.name}
+                                    <div className="text-xs text-gray-500">{student.dept} • {student.avg_skill}% Avg</div>
+                                </td>
+                                <td className="p-4">
+                                    <span className="px-2 py-1 rounded text-xs font-bold bg-red-900/30 text-red-400 border border-red-500/30">
+                                        At-Risk
+                                    </span>
+                                </td>
+                                <td className="p-4 text-right">
                                     <button 
                                         onClick={() => setInterventionModal(student)}
                                         className="text-xs bg-red-600 hover:bg-red-500 text-white px-3 py-1 rounded flex items-center gap-1 ml-auto transition-colors"
                                     >
                                         <ShieldAlert className="w-3 h-3" /> Intervene
                                     </button>
-                                )}
-                            </td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+             )}
           </div>
         </div>
 

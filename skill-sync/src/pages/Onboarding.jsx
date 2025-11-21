@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../context/UserContext';
 import { Plus, X, ArrowRight, Trophy, Target } from 'lucide-react';
@@ -8,8 +8,15 @@ export default function Onboarding() {
   const navigate = useNavigate();
   
   const [skillInput, setSkillInput] = useState('');
-  const [proficiency, setProficiency] = useState(40); // Default start at 40%
+  const [proficiency, setProficiency] = useState(40); 
   const [interestInput, setInterestInput] = useState('');
+
+  // --- SAFETY CHECK: Redirect if no name (User jumped queue) ---
+  useEffect(() => {
+    if (!user.name) {
+      navigate('/');
+    }
+  }, [user.name, navigate]);
 
   // Helper to determine color based on slider value
   const getLevelColor = (val) => {
@@ -28,7 +35,7 @@ export default function Onboarding() {
     if (skillInput.trim()) {
       addSkill(skillInput, proficiency);
       setSkillInput('');
-      setProficiency(40); // Reset slider
+      setProficiency(40); 
     }
   };
 
@@ -59,14 +66,13 @@ export default function Onboarding() {
 
       <div className="max-w-2xl mx-auto space-y-8">
         
-        {/* --- SECTION 1: SKILLS (The Slider Logic) --- */}
+        {/* --- SECTION 1: SKILLS --- */}
         <div className="bg-card border border-slate-800 rounded-2xl p-6 md:p-8 shadow-xl">
           <div className="flex items-center gap-3 mb-4">
             <div className="p-2 bg-blue-500/10 rounded-lg text-blue-400"><Trophy size={20} /></div>
             <h2 className="text-xl font-bold text-white">Add Your Skills</h2>
           </div>
           
-          {/* Input Area */}
           <div className="space-y-4">
             <div className="flex gap-3">
               <input 
@@ -86,7 +92,7 @@ export default function Onboarding() {
               </button>
             </div>
 
-            {/* The Magic Slider (Only shows when typing) */}
+            {/* Slider */}
             <div className={`bg-slate-900/80 p-4 rounded-xl border border-slate-700 transition-all duration-300 ${skillInput ? 'opacity-100 translate-y-0' : 'opacity-50 grayscale'}`}>
               <div className="flex justify-between mb-2 text-sm font-medium">
                 <span className="text-slate-400">Proficiency: <span className={getLevelColor(proficiency)}>{getLevelLabel(proficiency)}</span></span>
@@ -103,7 +109,7 @@ export default function Onboarding() {
             </div>
           </div>
 
-          {/* List of Added Skills */}
+          {/* List */}
           <div className="mt-6 space-y-3">
             {user.skills.length === 0 && (
               <p className="text-center text-slate-600 text-sm italic">No skills added yet. Try adding "Python"!</p>
@@ -122,7 +128,6 @@ export default function Onboarding() {
                     />
                   </div>
                 </div>
-                {/* Delete Button (Mock - just UI for now) */}
                 <button className="ml-4 text-slate-600 hover:text-red-400 transition-colors">
                   <X size={18} />
                 </button>
@@ -131,7 +136,7 @@ export default function Onboarding() {
           </div>
         </div>
 
-        {/* --- SECTION 2: INTERESTS (Tags) --- */}
+        {/* --- SECTION 2: INTERESTS --- */}
         <div className="bg-card border border-slate-800 rounded-2xl p-6 md:p-8 shadow-xl">
           <div className="flex items-center gap-3 mb-4">
             <div className="p-2 bg-purple-500/10 rounded-lg text-purple-400"><Target size={20} /></div>

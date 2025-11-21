@@ -1,138 +1,91 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Video, ExternalLink, BookOpen, Clock, Calendar, Bell, Flame, Trophy, ArrowRight, Target, Layers, Code, Zap } from 'lucide-react'; 
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { Video, ExternalLink, BookOpen, Clock, Calendar, Target, Layers, Code, Zap } from 'lucide-react'; 
 import ForceGraph2D from 'react-force-graph-2d'; 
 
 const Dashboard = () => {
   const [matches, setMatches] = useState([]);
+  // We store masterData to keep the full graph in memory while filtering
+  const [masterGraphData, setMasterGraphData] = useState({ nodes: [], links: [] });
   const [graphData, setGraphData] = useState({ nodes: [], links: [] });
   const [loading, setLoading] = useState(true);
   const [activeView, setActiveView] = useState('all'); // 'all', 'skills', 'interests'
   const graphRef = useRef(); 
 
-  // --- 1. MOCK MATCHES (With Study Plans) ---
-  const MOCK_MATCHES = [
-    {
-      id: 999,
-      type: "System",
-      name: "Skill Progression AI",
-      score: 100,
-      is_progression: true,
-      current_skill: "React",
-      next_skill: "Next.js",
-      reason: "You are a React Expert (85%). Time to level up!"
-    },
-    {
-      id: 2,
-      name: "Rahul Sharma",
-      dept: "CSE",
-      score: 95,
-      type: "Peer",
-      matched_skills: [
-        { name: "Python", their_level: 45, your_level: 40 }, 
-      ],
-      shared_interests: ["Competitive Coding", "Hackathons"], 
-      recommendation_link: "https://www.youtube.com/watch?v=_uQrJ0TkZlc", 
-      recommendation_title: "Python for Beginners",
-      study_plan: { daily_hours: 2, days_to_next_level: 15, target_level: "Intermediate" }
-    },
-    {
-      id: 3,
-      name: "Ananya Reddy",
-      dept: "ISE",
-      score: 88,
-      type: "Mentor",
-      matched_skills: [
-        { name: "Java", their_level: 92, your_level: 30 },
-      ],
-      shared_interests: ["System Design"], 
-      recommendation_link: "https://www.youtube.com/watch?v=grEKMHGYyns", 
-      recommendation_title: "Advanced Java Architecture",
-      study_plan: { daily_hours: 1, days_to_next_level: 30, target_level: "Specialist" }
-    }
-  ];
-
-  // --- 2. MASTER GRAPH DATA (Everything) ---
-  const MASTER_GRAPH = useMemo(() => ({
-    nodes: [
-      { id: "You", group: "user", color: "#3b82f6", val: 25, label: "You" }, 
-      { id: "Rahul", group: "peer", color: "#10b981", val: 15, label: "Rahul" }, 
-      { id: "Ananya", group: "mentor", color: "#a855f7", val: 15, label: "Ananya" }, 
-      
-      // Skills
-      { id: "Python", group: "skill", color: "#f59e0b", val: 12, label: "Python" }, 
-      { id: "React", group: "skill", color: "#f59e0b", val: 12, label: "React" },
-      { id: "Next.js", group: "skill", color: "#f59e0b", val: 12, label: "Next.js" },
-
-      // Academic Interests
-      { id: "Hackathons", group: "interest", color: "#ef4444", val: 12, label: "Hackathons" },
-      { id: "DSA", group: "interest", color: "#ef4444", val: 12, label: "DSA / CP" }
-    ],
-    links: [
-      // Skill Links
-      { source: "You", target: "Python", type: "skill" },
-      { source: "You", target: "React", type: "skill" },
-      { source: "Rahul", target: "Python", type: "skill" },
-      { source: "Ananya", target: "React", type: "skill" },
-      { source: "You", target: "Next.js", type: "skill" },
-      
-      // Interest Links
-      { source: "You", target: "Hackathons", type: "interest" },
-      { source: "Rahul", target: "Hackathons", type: "interest" },
-      { source: "You", target: "DSA", type: "interest" },
-      { source: "Rahul", target: "DSA", type: "interest" }
-    ]
-  }), []);
-
-  // --- 3. FILTER LOGIC ---
+  // --- 1. FETCH DATA FROM BACKEND ---
   useEffect(() => {
     setLoading(true);
-    
-    // Simulate processing time for smooth transition
-    setTimeout(() => {
-      setMatches(MOCK_MATCHES);
-      
-      let filteredNodes = [];
-      let filteredLinks = [];
 
-      if (activeView === 'all') {
-        filteredNodes = MASTER_GRAPH.nodes;
-        filteredLinks = MASTER_GRAPH.links;
-      } 
-      else if (activeView === 'skills') {
-        // Keep Users + Skills only
-        filteredNodes = MASTER_GRAPH.nodes.filter(n => n.group !== 'interest');
-        filteredLinks = MASTER_GRAPH.links.filter(l => l.type === 'skill');
-      } 
-      else if (activeView === 'interests') {
-        // Keep Users + Interests only
-        filteredNodes = MASTER_GRAPH.nodes.filter(n => n.group !== 'skill');
-        filteredLinks = MASTER_GRAPH.links.filter(l => l.type === 'interest');
-      }
+    // Fetch Recommendations
+    fetch('http://localhost:5000/api/recommend/1') // Assuming User ID 1
+      .then(res => res.json())
+      .then(data => {
+        // Filter out any "System" type matches (like the Level Up card you wanted removed)
+        const studentMatches = data.filter(m => m.type !== 'System');
+        setMatches(studentMatches);
+      })
+      .catch(err => console.error("Rec API Error:", err));
 
-      setGraphData({ nodes: filteredNodes, links: filteredLinks });
-      setLoading(false);
-    }, 300);
-  }, [activeView, MASTER_GRAPH]); // Re-run whenever view changes
+    // Fetch Graph Data
+    // NOTE: The backend should return a graph centered around the current user for clarity
+    fetch('http://localhost:5000/api/graph-data')
+      .then(res => res.json())
+      .then(data => {
+        setMasterGraphData(data);
+        // Initialize graph with filtered view (only relevant nodes)
+        setLoading(false);
+      })
+      .catch(err => console.error("Graph API Error:", err));
+  }, []);
 
+  // --- 2. FILTER LOGIC (Client Side) ---
+  useEffect(() => {
+    if (!masterGraphData.nodes.length) return;
+
+    let filteredNodes = [];
+    let filteredLinks = [];
+
+    if (activeView === 'all') {
+      filteredNodes = masterGraphData.nodes;
+      filteredLinks = masterGraphData.links;
+    } 
+    else if (activeView === 'skills') {
+      // Keep Users + Skills only (Filter out interests)
+      filteredNodes = masterGraphData.nodes.filter(n => n.group !== 'interest');
+      // Keep links that are NOT type 'interest'
+      filteredLinks = masterGraphData.links.filter(l => l.type !== 'interest');
+    } 
+    else if (activeView === 'interests') {
+      // Keep Users + Interests only (Filter out skills)
+      filteredNodes = masterGraphData.nodes.filter(n => n.group !== 'skill');
+      filteredLinks = masterGraphData.links.filter(l => l.type !== 'skill');
+    }
+
+    setGraphData({ nodes: filteredNodes, links: filteredLinks });
+  }, [activeView, masterGraphData]);
+
+  // --- 3. GRAPH NODE PAINTER ---
   const paintNode = useCallback((node, ctx, globalScale) => {
-    const label = node.label || node.id;
+    const label = node.label || node.id; // Using ID as label
     const fontSize = 14 / globalScale;
     
-    ctx.fillStyle = node.color;
+    ctx.fillStyle = node.color || "#3b82f6"; // Default blue if color missing
     ctx.beginPath();
     
     if (node.group === 'skill') {
+      // Diamond for Skills
       const size = 6;
       ctx.moveTo(node.x, node.y - size);
       ctx.lineTo(node.x + size, node.y);
       ctx.lineTo(node.x, node.y + size);
       ctx.lineTo(node.x - size, node.y);
     } else if (node.group === 'interest') {
+      // Triangle for Interests
       const size = 7;
       ctx.moveTo(node.x, node.y - size);
       ctx.lineTo(node.x + size, node.y + size);
       ctx.lineTo(node.x - size, node.y + size);
     } else {
+      // Circle for Users
       ctx.arc(node.x, node.y, 5, 0, 2 * Math.PI, false);
     }
     ctx.fill();
@@ -154,31 +107,23 @@ const Dashboard = () => {
   return (
     <div className="min-h-screen bg-gray-950 text-white p-6">
       
-      {/* HEADER */}
+      {/* HEADER (Cleaned up: No Streak) */}
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
             Your Study Matches
           </h1>
-          <p className="text-gray-400 text-sm">Based on Skills & Academic Focus</p>
+          <p className="text-gray-400 text-sm">Real-time recommendations from Python Backend</p>
         </div>
-        <div className="flex gap-4 items-center">
-            <div className="flex items-center gap-2 bg-orange-900/20 border border-orange-500/30 px-4 py-2 rounded-full">
-                <Flame className="w-5 h-5 text-orange-500 animate-pulse" />
-                <div>
-                    <p className="text-xs text-orange-400 font-bold uppercase">Daily Streak</p>
-                    <p className="text-sm font-bold text-white">🔥 3 Days</p>
-                </div>
-            </div>
-        </div>
+        {/* Streak Button Removed Here */}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-140px)]">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[550px]"> {/* Medium Size Graph Container */}
         
         {/* LEFT: GRAPH CONTAINER */}
-        <div className="lg:col-span-2 flex flex-col gap-4">
+        <div className="lg:col-span-2 flex flex-col gap-4 h-full">
             
-            {/* NEW: VIEW TOGGLE BUTTONS */}
+            {/* VIEW TOGGLE BUTTONS */}
             <div className="flex gap-2 bg-gray-900 p-1 rounded-lg w-fit border border-gray-800">
                 <button 
                     onClick={() => setActiveView('all')}
@@ -202,7 +147,7 @@ const Dashboard = () => {
 
             {/* THE GRAPH */}
             <div className="flex-1 bg-gray-900/50 border border-gray-800 rounded-2xl overflow-hidden relative shadow-inner">
-                {/* DYNAMIC LEGEND */}
+                {/* LEGEND */}
                 <div className="absolute top-4 left-4 z-10 bg-gray-900/90 backdrop-blur border border-gray-700 p-4 rounded-xl shadow-xl">
                     <h3 className="text-xs font-bold text-gray-400 uppercase mb-3">
                         {activeView === 'all' ? 'Full Network' : activeView === 'skills' ? 'Skill Clusters' : 'Interest Groups'}
@@ -245,38 +190,25 @@ const Dashboard = () => {
             </div>
         </div>
 
-        {/* RIGHT: MATCH CARDS */}
-        <div className="space-y-4 overflow-y-auto pr-2 custom-scrollbar pb-10">
-          {matches.map((match) => (
+        {/* RIGHT: MATCH CARDS (Scrollable) */}
+        <div className="space-y-4 overflow-y-auto pr-2 custom-scrollbar pb-10 h-full">
+          {loading ? (
+            <p className="text-gray-500 text-center mt-10">Finding best matches...</p>
+          ) : matches.length === 0 ? (
+             <p className="text-gray-500 text-center mt-10">No matches found.</p>
+          ) : (
+             matches.map((match) => (
               <MatchCard key={match.id} match={match} />
-          ))}
+          ))
+          )}
         </div>
       </div>
     </div>
   );
 };
 
-// --- SUPERCHARGED MATCH CARD ---
 const MatchCard = ({ match }) => {
   const startSession = () => window.open(`https://meet.jit.si/SkillSync-${match.id}`, '_blank');
-
-  // Progression Card (Gold)
-  if (match.is_progression) {
-    return (
-        <div className="bg-gradient-to-br from-yellow-900/40 to-orange-900/40 rounded-xl p-1 border border-yellow-500/50 shadow-lg mb-4">
-            <div className="bg-gray-900/80 backdrop-blur-sm rounded-lg p-5 relative">
-                <div className="flex items-start gap-4">
-                    <div className="p-3 bg-yellow-500/20 rounded-lg text-yellow-400"><Trophy className="w-6 h-6" /></div>
-                    <div>
-                        <h3 className="text-lg font-bold text-white">Level Up Available!</h3>
-                        <p className="text-sm text-gray-300 mt-1">{match.reason}</p>
-                        <button className="mt-3 w-full py-2 bg-yellow-500 hover:bg-yellow-400 text-black font-bold rounded text-sm">Start Path</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-  }
 
   return (
     <div className="bg-gray-800 rounded-xl p-0 border border-gray-700 hover:border-indigo-500 transition-all shadow-lg group overflow-hidden">
@@ -316,6 +248,23 @@ const MatchCard = ({ match }) => {
         )}
       </div>
 
+      {/* SKILL PERCENTAGE DISPLAY (VISUAL BAR REMOVED) */}
+      <div className="px-5 pb-4">
+        {match.matched_skills && match.matched_skills.map((skill, i) => (
+            <div key={i} className="mb-3 border-b border-gray-700/50 pb-2 last:border-0">
+                <div className="flex justify-between items-center text-sm">
+                    <span className="text-gray-300 font-medium">{skill.name}</span>
+                    {/* TEXT ONLY - PERCENTAGE */}
+                    <span className={`font-bold px-2 py-0.5 rounded text-xs ${
+                        match.type === 'Mentor' ? 'text-purple-300 bg-purple-900/30' : 'text-emerald-300 bg-emerald-900/30'
+                    }`}>
+                        {skill.their_level}% Proficiency
+                    </span>
+                </div>
+            </div>
+        ))}
+      </div>
+
       {/* MIDDLE SECTION: THE AI STUDY PLAN */}
       <div className="bg-gray-900/80 p-4 border-y border-gray-700">
         <h4 className="text-[10px] font-bold text-indigo-400 uppercase mb-3 flex items-center gap-2">
@@ -323,17 +272,17 @@ const MatchCard = ({ match }) => {
         </h4>
         <div className="flex justify-between items-center mb-3">
             <div className="text-center">
-                <p className="text-2xl font-bold text-white">{match.study_plan.daily_hours}h</p>
+                <p className="text-2xl font-bold text-white">{match.study_plan?.daily_hours || 2}h</p>
                 <p className="text-[10px] text-gray-400">Daily Goal</p>
             </div>
             <div className="h-8 w-px bg-gray-700"></div>
             <div className="text-center">
-                <p className="text-2xl font-bold text-white">{match.study_plan.days_to_next_level}</p>
+                <p className="text-2xl font-bold text-white">{match.study_plan?.days_to_next_level || 15}</p>
                 <p className="text-[10px] text-gray-400">Days to Level Up</p>
             </div>
             <div className="h-8 w-px bg-gray-700"></div>
             <div className="text-center">
-                <p className="text-sm font-bold text-emerald-400">{match.study_plan.target_level}</p>
+                <p className="text-sm font-bold text-emerald-400">{match.study_plan?.target_level || "Intermediate"}</p>
                 <p className="text-[10px] text-gray-400">Next Milestone</p>
             </div>
         </div>
@@ -355,7 +304,7 @@ const MatchCard = ({ match }) => {
       <div className="p-4">
         <button onClick={startSession} className="w-full bg-white hover:bg-gray-100 text-black py-3 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors shadow-lg shadow-white/5">
             <Video className="w-4 h-4" /> 
-            Start {match.study_plan.daily_hours}h Session
+            Start Session
         </button>
       </div>
     </div>
