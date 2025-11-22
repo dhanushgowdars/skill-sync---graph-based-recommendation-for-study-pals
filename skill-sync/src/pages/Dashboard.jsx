@@ -1,23 +1,30 @@
 // src/pages/Dashboard.jsx
-import React, { useEffect, useRef, useState, useCallback, Suspense, lazy } from "react";
+import React, {
+  useEffect,
+  useRef,
+  useState,
+  useCallback,
+  Suspense,
+  lazy,
+} from "react";
 import { BookOpen, Clock, Video, ExternalLink } from "lucide-react";
-import { useUser } from "../context/UserContext"; // adapt path if needed
+import { useUser } from "../context/UserContext"; // adjust path if needed
 
 const ForceGraph2D = lazy(() => import("react-force-graph-2d"));
 import { forceManyBody, forceLink, forceCenter } from "d3-force";
 
-/**
- * Dashboard.jsx
- * - Moderate node spacing: not too close, not too far
- * - Uses d3-force with tuned parameters:
- *    charge: -140 (moderate repulsion)
- *    link distances: connection ~130, skill ~100, interest ~110
- * - Three graph tabs remain (Network / Skills / Combined)
- */
-
 export default function Dashboard() {
-  const ctx = useUser ? useUser() : { user: { id: 1, name: "Dhanush" } };
-  const userId = ctx?.user?.id || 1;
+  const { user } = useUser ? useUser() : { user: { id: 1, name: "Student" } };
+  const userId = user?.id || 1;
+
+  // user skills from context (can be ["Python", "React"] or [{name, level}])
+  const skillOptionsRaw = Array.isArray(user?.skills) ? user.skills : [];
+  const skillOptions = skillOptionsRaw.map((s) =>
+    typeof s === "string" ? s : s.name
+  );
+  const firstSkill = skillOptions[0] || "Python";
+
+  const [focusSkill, setFocusSkill] = useState(firstSkill);
 
   const fgRef = useRef(null);
   const [loading, setLoading] = useState(true);
@@ -31,19 +38,31 @@ export default function Dashboard() {
   const [graphSkills, setGraphSkills] = useState({ nodes: [], links: [] });
   const [graphCombined, setGraphCombined] = useState({ nodes: [], links: [] });
 
-  // fetch recommendations + compact graph
+  // -----------------------------
+  // Fetch recommendations + graph
+  // -----------------------------
   useEffect(() => {
+    const skill = focusSkill || firstSkill;
     setLoading(true);
     setErrorMsg(null);
-    const recUrl = `http://localhost:5000/api/recommend/${userId}`;
-    const graphUrl = `http://localhost:5000/api/graph-data?user_id=${userId}`;
+
+    const skillParam = encodeURIComponent(skill);
+    const meName = encodeURIComponent(user?.name || "Student");
+
+    const recUrl = `http://localhost:5000/api/recommend/${userId}?skill=${skillParam}`;
+    const graphUrl = `http://localhost:5000/api/graph-data?user_id=${userId}&me_name=${meName}&skill=${skillParam}`;
 
     Promise.all([
-      fetch(recUrl).then((r) => (r.ok ? r.json() : Promise.reject("recommend API error"))),
-      fetch(graphUrl).then((r) => (r.ok ? r.json() : Promise.reject("graph API error")))
+      fetch(recUrl).then((r) =>
+        r.ok ? r.json() : Promise.reject("recommend API error")
+      ),
+      fetch(graphUrl).then((r) =>
+        r.ok ? r.json() : Promise.reject("graph API error")
+      ),
     ])
       .then(([rec, graph]) => {
-        setMatches((rec || []).slice(0, 3));
+        // we still cap at 3 matches on backend; just store what we get
+        setMatches(rec || []);
         setGraphMaster(graph || { nodes: [], links: [] });
       })
       .catch((err) => {
@@ -51,88 +70,142 @@ export default function Dashboard() {
         setErrorMsg(String(err));
       })
       .finally(() => setLoading(false));
-  }, [userId]);
+  }, [userId, focusSkill, firstSkill, user?.name]);
 
-  // build filtered graphs
+  // -----------------------------
+  // Build filtered graphs by tab
+  // -----------------------------
   useEffect(() => {
     const nodes = graphMaster.nodes || [];
     const links = graphMaster.links || [];
-    const nodeById = new Map((nodes || []).map((n) => [n.id, n]));
+    const nodeById = new Map(nodes.map((n) => [n.id, n]));
 
-    const meNode = (nodes || []).find((n) => n.role === "me" || String(n.id).includes(`user-${userId}`) || n.is_me);
+    const meNode =
+      nodes.find((n) => n.role === "me") ||
+      nodes.find((n) => n.is_me) ||
+      nodes.find((n) => String(n.id).includes(`user-${userId}`));
 
-    // NETWORK: users + connections
-    const netNodes = (nodes || []).filter((n) => n.group === "user" || n.role === "me" || n.role === "peer" || n.role === "mentor");
-    const netLinks = (links || []).filter((l) => l.type === "connection" || (String(l.source).startsWith("user-") && String(l.target).startsWith("user-")));
+    // NETWORK: only user nodes + connections
+    const netNodes = nodes.filter(
+      (n) =>
+        n.group === "user" ||
+        n.role === "me" ||
+        n.role === "peer" ||
+        n.role === "mentor"
+    );
+    const netLinks = links.filter(
+      (l) =>
+        l.type === "connection" ||
+        (String(l.source).startsWith("user-") &&
+          String(l.target).startsWith("user-"))
+    );
     if (meNode && !netNodes.find((n) => n.id === meNode.id)) netNodes.push(meNode);
     setGraphNetwork({ nodes: netNodes, links: netLinks });
 
-    // SKILLS: me + skill nodes + skill links
+    // SKILLS: me + skill nodes + links of type 'skill'
     const skillNodesMap = new Map();
-    const skillNodes = [];
-    const skillLinks = [];
+    const skillNodesArr = [];
+    const skillLinksArr = [];
 
-    if (meNode) skillNodes.push(meNode);
-    (links || []).forEach((l) => {
+    if (meNode) skillNodesArr.push(meNode);
+    links.forEach((l) => {
       if (l.type === "skill") {
-        const src = nodeById.get(l.source) || nodeById.get(String(l.source));
-        const tgt = nodeById.get(l.target) || nodeById.get(String(l.target));
-        const skillNode = src?.group === "skill" ? src : tgt?.group === "skill" ? tgt : null;
-        const userNode = src?.group === "user" ? src : tgt?.group === "user" ? tgt : null;
+        const src =
+          nodeById.get(l.source) || nodeById.get(String(l.source)) || null;
+        const tgt =
+          nodeById.get(l.target) || nodeById.get(String(l.target)) || null;
+        const skillNode =
+          src?.group === "skill" ? src : tgt?.group === "skill" ? tgt : null;
+        const userNode =
+          src?.group === "user" ? src : tgt?.group === "user" ? tgt : null;
 
         if (skillNode && !skillNodesMap.has(skillNode.id)) {
           skillNodesMap.set(skillNode.id, skillNode);
-          skillNodes.push(skillNode);
+          skillNodesArr.push(skillNode);
         }
-        if (userNode && !skillNodes.find((n) => n.id === userNode.id)) skillNodes.push(userNode);
-        if (skillNode) skillLinks.push(l);
+        if (userNode && !skillNodesArr.find((n) => n.id === userNode.id)) {
+          skillNodesArr.push(userNode);
+        }
+        if (skillNode) skillLinksArr.push(l);
       }
     });
-    setGraphSkills({ nodes: skillNodes, links: skillLinks });
+    setGraphSkills({ nodes: skillNodesArr, links: skillLinksArr });
 
-    // COMBINED: user + skill + interest (caps to avoid clutter)
+    // COMBINED: users + top few skills + top few interests
     const combinedSkillSet = new Set();
     const combinedInterestSet = new Set();
     const combinedNodes = [];
     const combinedLinks = [];
 
     if (meNode) combinedNodes.push(meNode);
-    (nodes || []).forEach((n) => { if (n.group === "user") combinedNodes.push(n); });
+    nodes.forEach((n) => {
+      if (n.group === "user") combinedNodes.push(n);
+    });
 
-    for (const l of (links || [])) {
+    links.forEach((l) => {
       if (l.type === "skill") {
-        const s = nodeById.get(l.source) || nodeById.get(String(l.source));
-        const t = nodeById.get(l.target) || nodeById.get(String(l.target));
-        if (s && s.group === "skill" && combinedSkillSet.size < 6) { combinedSkillSet.add(s.id); combinedNodes.push(s); }
-        if (t && t.group === "skill" && combinedSkillSet.size < 6) { combinedSkillSet.add(t.id); combinedNodes.push(t); }
+        const s =
+          nodeById.get(l.source) || nodeById.get(String(l.source)) || null;
+        const t =
+          nodeById.get(l.target) || nodeById.get(String(l.target)) || null;
+        if (s && s.group === "skill" && !combinedSkillSet.has(s.id)) {
+          combinedSkillSet.add(s.id);
+          if (combinedSkillSet.size <= 6) combinedNodes.push(s);
+        }
+        if (t && t.group === "skill" && !combinedSkillSet.has(t.id)) {
+          combinedSkillSet.add(t.id);
+          if (combinedSkillSet.size <= 6) combinedNodes.push(t);
+        }
         combinedLinks.push(l);
       } else if (l.type === "interest") {
-        const s = nodeById.get(l.source) || nodeById.get(String(l.source));
-        const t = nodeById.get(l.target) || nodeById.get(String(l.target));
-        if (s && s.group === "interest" && combinedInterestSet.size < 4) { combinedInterestSet.add(s.id); combinedNodes.push(s); }
-        if (t && t.group === "interest" && combinedInterestSet.size < 4) { combinedInterestSet.add(t.id); combinedNodes.push(t); }
+        const s =
+          nodeById.get(l.source) || nodeById.get(String(l.source)) || null;
+        const t =
+          nodeById.get(l.target) || nodeById.get(String(l.target)) || null;
+        if (s && s.group === "interest" && !combinedInterestSet.has(s.id)) {
+          combinedInterestSet.add(s.id);
+          if (combinedInterestSet.size <= 4) combinedNodes.push(s);
+        }
+        if (t && t.group === "interest" && !combinedInterestSet.has(t.id)) {
+          combinedInterestSet.add(t.id);
+          if (combinedInterestSet.size <= 4) combinedNodes.push(t);
+        }
         combinedLinks.push(l);
       } else {
         combinedLinks.push(l);
       }
-    }
+    });
+
     const seen = new Set();
-    const dedup = [];
-    for (const n of combinedNodes) {
-      if (!seen.has(n.id)) { dedup.push(n); seen.add(n.id); }
-    }
-    setGraphCombined({ nodes: dedup, links: combinedLinks });
+    const dedupNodes = [];
+    combinedNodes.forEach((n) => {
+      if (!seen.has(n.id)) {
+        dedupNodes.push(n);
+        seen.add(n.id);
+      }
+    });
+
+    setGraphCombined({ nodes: dedupNodes, links: combinedLinks });
   }, [graphMaster, userId]);
 
-  // paint nodes (moderate sizes)
+  // -----------------------------
+  // Node painter
+  // -----------------------------
   const paintNode = useCallback((node, ctx, globalScale) => {
     if (typeof node.x !== "number") return;
     const label = node.label || node.id || "";
-    // moderate size: a bit larger than minimal but not huge
-    const baseSize = Math.max(6, (node.val ? node.val / 2 : 8));
+    const baseSize = Math.max(6, node.val ? node.val / 2 : 8);
     const fontSize = Math.max(9, 11 / globalScale);
 
-    const color = node.color || (node.role === "me" ? "#fb923c" : node.group === "skill" ? "#f59e0b" : node.group === "interest" ? "#ef4444" : "#60a5fa");
+    const color =
+      node.color ||
+      (node.role === "me"
+        ? "#fb923c"
+        : node.group === "skill"
+        ? "#f59e0b"
+        : node.group === "interest"
+        ? "#ef4444"
+        : "#60a5fa");
     ctx.fillStyle = color;
 
     ctx.beginPath();
@@ -177,31 +250,33 @@ export default function Dashboard() {
     }
   }, []);
 
-  // tune forces for a balanced layout
+  // tune forces (moderate distance)
   useEffect(() => {
     const timer = setTimeout(() => {
       const fg = fgRef.current;
       if (!fg || !fg.d3Force) return;
 
-      // moderate repulsion (not too strong)
-      fg.d3Force("charge", forceManyBody().strength(-140)); // moderated from -220
+      fg.d3Force("charge", forceManyBody().strength(-140));
 
-      // link distances moderate: connection ~130, skill ~100, interest ~110
-      fg.d3Force("link", forceLink().distance((d) => {
-        if (!d || !d.type) return 120;
-        if (d.type === "connection") return 130;
-        if (d.type === "skill") return 100;
-        if (d.type === "interest") return 110;
-        return 120;
-      }).strength(0.75));
+      fg.d3Force(
+        "link",
+        forceLink()
+          .distance((d) => {
+            if (!d || !d.type) return 120;
+            if (d.type === "connection") return 130;
+            if (d.type === "skill") return 100;
+            if (d.type === "interest") return 110;
+            return 120;
+          })
+          .strength(0.75)
+      );
 
       fg.d3Force("center", forceCenter());
 
-      // small reheat to help layout settle nicely (not fling)
       try {
         fg.d3ReheatSimulation();
       } catch (e) {
-        // OK if not available
+        // ignore
       }
     }, 400);
 
@@ -224,12 +299,42 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen p-6 bg-slate-900 text-white">
+      {/* Header */}
       <div className="flex justify-between items-center mb-4">
         <div>
-          <h1 className="text-3xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">Your Study Matches</h1>
-          <p className="text-sm text-slate-400">Compact recommendations and focused collaborator graphs</p>
+          <h1 className="text-3xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">
+            Your Study Matches
+          </h1>
+          <p className="text-sm text-slate-400">
+            Compact recommendations and focused collaborator graphs
+          </p>
+          <p className="text-xs text-slate-400 mt-1">
+            Matching based on skill:{" "}
+            <span className="font-semibold text-indigo-300">
+              {focusSkill}
+            </span>
+          </p>
         </div>
       </div>
+
+      {/* Skill selector (real, from user profile) */}
+      {skillOptions.length > 0 && (
+        <div className="mb-4 flex flex-wrap gap-2">
+          {skillOptions.map((skill) => (
+            <button
+              key={skill}
+              onClick={() => setFocusSkill(skill)}
+              className={`px-3 py-1 rounded-full text-xs font-semibold border transition ${
+                focusSkill === skill
+                  ? "bg-indigo-600 text-white border-indigo-500"
+                  : "bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700"
+              }`}
+            >
+              {skill}
+            </button>
+          ))}
+        </div>
+      )}
 
       {errorMsg && (
         <div className="mb-3 rounded-md bg-rose-900/60 p-3 text-rose-200">
@@ -238,24 +343,52 @@ export default function Dashboard() {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[660px]">
+        {/* LEFT: Graph */}
         <div className="lg:col-span-2 flex flex-col gap-3">
+          {/* Tab buttons */}
           <div className="flex gap-2">
-            <Tab label="Network" active={activeTab === "network"} onClick={() => setActiveTab("network")} />
-            <Tab label="Skills" active={activeTab === "skills"} onClick={() => setActiveTab("skills")} />
-            <Tab label="Combined" active={activeTab === "combined"} onClick={() => setActiveTab("combined")} />
+            <Tab
+              label="Network"
+              active={activeTab === "network"}
+              onClick={() => setActiveTab("network")}
+            />
+            <Tab
+              label="Skills"
+              active={activeTab === "skills"}
+              onClick={() => setActiveTab("skills")}
+            />
+            <Tab
+              label="Combined"
+              active={activeTab === "combined"}
+              onClick={() => setActiveTab("combined")}
+            />
           </div>
 
           <div className="flex-1 bg-slate-800/20 rounded-2xl border border-slate-700 p-4 relative overflow-hidden">
+            {/* Legend */}
             <div className="absolute left-6 top-6 z-20 bg-slate-900/70 border border-slate-700 rounded-lg p-3 text-xs">
               <div className="font-semibold text-slate-300 mb-2">Legend</div>
-              <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-orange-400" /> <div className="text-slate-300">You</div></div>
-              <div className="flex items-center gap-2 mt-1"><div className="w-3 h-3 rotate-45 bg-amber-500" /> <div className="text-slate-300">Skill</div></div>
-              <div className="flex items-center gap-2 mt-1"><div className="w-3 h-3 bg-red-500" /> <div className="text-slate-300">Interest</div></div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-orange-400" />
+                <div className="text-slate-300">You</div>
+              </div>
+              <div className="flex items-center gap-2 mt-1">
+                <div className="w-3 h-3 rotate-45 bg-amber-500" />
+                <div className="text-slate-300">Skill</div>
+              </div>
+              <div className="flex items-center gap-2 mt-1">
+                <div className="w-3 h-3 bg-red-500" />
+                <div className="text-slate-300">Interest</div>
+              </div>
             </div>
 
             <div className="absolute inset-0">
               {!loading && (
-                <Suspense fallback={<div className="p-6 text-slate-400">Loading graph...</div>}>
+                <Suspense
+                  fallback={
+                    <div className="p-6 text-slate-400">Loading graph...</div>
+                  }
+                >
                   <ForceGraph2D
                     ref={fgRef}
                     graphData={getActiveGraph()}
@@ -274,16 +407,23 @@ export default function Dashboard() {
                   />
                 </Suspense>
               )}
-              {loading && <div className="flex items-center justify-center h-full text-slate-400">Loading recommendations & graph…</div>}
+              {loading && (
+                <div className="flex items-center justify-center h-full text-slate-400">
+                  Loading recommendations & graph…
+                </div>
+              )}
             </div>
           </div>
         </div>
 
+        {/* RIGHT: Recommendation cards */}
         <div className="space-y-4 overflow-y-auto custom-scrollbar p-1">
           {loading ? (
             <div className="text-slate-400">Finding matches…</div>
           ) : matches.length === 0 ? (
-            <div className="text-slate-400">No matches found</div>
+            <div className="text-slate-400">
+              No matches found for <b>{focusSkill}</b>.
+            </div>
           ) : (
             matches.map((m) => <MatchCard key={m.id} match={m} />)
           )}
@@ -293,73 +433,116 @@ export default function Dashboard() {
   );
 }
 
-// Tab
 function Tab({ label, active, onClick }) {
   return (
-    <button onClick={onClick} className={`px-3 py-1 rounded-md text-sm font-medium transition ${active ? "bg-indigo-600 text-white" : "bg-slate-800 text-slate-300"}`}>
+    <button
+      onClick={onClick}
+      className={`px-3 py-1 rounded-md text-sm font-medium transition ${
+        active ? "bg-indigo-600 text-white" : "bg-slate-800 text-slate-300"
+      }`}
+    >
       {label}
     </button>
   );
 }
 
-// MatchCard
 function MatchCard({ match }) {
-  const startSession = () => window.open(`https://meet.jit.si/SkillSync-${match.id}`, "_blank");
+  const startSession = () =>
+    window.open(`https://meet.jit.si/SkillSync-${match.id}`, "_blank");
+
   return (
     <div className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
       <div className="p-4 flex justify-between">
         <div className="flex items-center gap-3">
-          <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold ${match.type === "Mentor" ? "bg-gradient-to-br from-purple-600 to-indigo-600" : "bg-gradient-to-br from-emerald-500 to-teal-500"}`}>{match.name.charAt(0)}</div>
+          <div
+            className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold ${
+              match.type === "Mentor"
+                ? "bg-gradient-to-br from-purple-600 to-indigo-600"
+                : "bg-gradient-to-br from-emerald-500 to-teal-500"
+            }`}
+          >
+            {match.name.charAt(0)}
+          </div>
           <div>
             <div className="font-semibold">{match.name}</div>
-            <div className="text-xs text-slate-400">{match.dept} • {match.type}</div>
+            <div className="text-xs text-slate-400">
+              {match.dept} • {match.type}
+            </div>
           </div>
         </div>
         <div className="text-right">
-          <div className="text-2xl text-indigo-300 font-extrabold">{match.score}%</div>
+          <div className="text-2xl text-indigo-300 font-extrabold">
+            {match.score}%
+          </div>
           <div className="text-xs text-slate-500">Match Score</div>
         </div>
       </div>
 
       <div className="px-4 pb-4">
-        {match.matched_skills && match.matched_skills.map((s, i) => (
-          <div key={i} className="flex justify-between items-center py-2 border-b border-slate-700/40">
-            <div className="text-sm text-slate-200">{s.name}</div>
-            <div className="text-xs font-semibold px-2 py-0.5 rounded text-slate-100 bg-slate-700/40">{s.their_level}% Proficiency</div>
-          </div>
-        ))}
+        {match.matched_skills &&
+          match.matched_skills.map((s, i) => (
+            <div
+              key={i}
+              className="flex justify-between items-center py-2 border-b border-slate-700/40"
+            >
+              <div className="text-sm text-slate-200">{s.name}</div>
+              <div className="text-xs font-semibold px-2 py-0.5 rounded text-slate-100 bg-slate-700/40">
+                {s.their_level}% Proficiency
+              </div>
+            </div>
+          ))}
 
         <div className="bg-slate-900/60 p-3 mt-3 rounded-md border border-slate-700">
-          <div className="text-xs text-indigo-300 font-bold mb-2 inline-flex items-center gap-2"><Clock className="w-3 h-3" /> AI Recommended Schedule</div>
+          <div className="text-xs text-indigo-300 font-bold mb-2 inline-flex items-center gap-2">
+            <Clock className="w-3 h-3" /> AI Recommended Schedule
+          </div>
           <div className="flex justify-between items-center">
             <div className="text-center">
-              <div className="text-lg font-bold">{match.study_plan?.daily_hours || 1}h</div>
+              <div className="text-lg font-bold">
+                {match.study_plan?.daily_hours || 1}h
+              </div>
               <div className="text-xs text-slate-400">Daily Goal</div>
             </div>
             <div className="h-8 w-px bg-slate-700" />
             <div className="text-center">
-              <div className="text-lg font-bold">{match.study_plan?.days_to_next_level || 14}</div>
+              <div className="text-lg font-bold">
+                {match.study_plan?.days_to_next_level || 14}
+              </div>
               <div className="text-xs text-slate-400">Days to Level Up</div>
             </div>
             <div className="h-8 w-px bg-slate-700" />
             <div className="text-center">
-              <div className="text-sm font-bold text-emerald-400">{match.study_plan?.target_level || "Intermediate"}</div>
+              <div className="text-sm font-bold text-emerald-400">
+                {match.study_plan?.target_level || "Intermediate"}
+              </div>
               <div className="text-xs text-slate-400">Next Milestone</div>
             </div>
           </div>
 
-          <button onClick={() => window.open(match.recommendation_link, "_blank", "noopener")} className="mt-3 w-full flex items-center gap-3 p-2 rounded-md bg-indigo-600/10 border border-indigo-700/20">
+          <button
+            onClick={() =>
+              window.open(match.recommendation_link, "_blank", "noopener")
+            }
+            className="mt-3 w-full flex items-center gap-3 p-2 rounded-md bg-indigo-600/10 border border-indigo-700/20"
+          >
             <BookOpen className="w-4 h-4 text-red-400" />
             <div className="flex-1 text-left">
-              <div className="text-xs text-indigo-300 font-semibold">Recommended Content</div>
-              <div className="text-sm truncate">{match.recommendation_title}</div>
+              <div className="text-xs text-indigo-300 font-semibold">
+                Recommended Content
+              </div>
+              <div className="text-sm truncate">
+                {match.recommendation_title}
+              </div>
             </div>
             <ExternalLink className="w-4 h-4 text-slate-400" />
           </button>
         </div>
 
         <div className="mt-3">
-          <button onClick={startSession} className="w-full bg-white text-black py-2 rounded-md font-semibold flex items-center justify-center gap-2">
+          <button
+            onClick={startSession}
+            className="w-full bg-white text-black py-2 rounded-md font-semibold flex items-center justify-center gap-2"
+          >
             <Video className="w-4 h-4" /> Start Session
           </button>
         </div>
