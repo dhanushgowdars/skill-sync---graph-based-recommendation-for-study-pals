@@ -1,184 +1,163 @@
-🚀 SkillSync – Graph-Based Study Pal Recommendation System
+# SkillSync – Graph-Based Study Partner Recommendation System
 
-A smart platform that uses graph algorithms + AI insights to match students with ideal study partners, recommend learning roadmaps, and track skill progress.
+A platform that uses graph algorithms and AI-based insights to recommend study partners, generate personalized learning roadmaps, and track skill development.
 
-📌 Overview
+---
 
-SkillSync is an AI-driven learning companion that uses Graph Theory + Skill Profiling to:
+## Overview
 
-🔗 Recommend the best study partners based on matching skills
+SkillSync is designed to:
 
-📚 Auto-generate learning roadmaps
+- Recommend suitable study partners based on skill similarity  
+- Generate structured learning roadmaps  
+- Track user proficiency and compare with peers  
+- Visualize collaboration networks  
+- Assist teachers in monitoring student performance  
 
-📊 Track user proficiency and compare with class averages
+The system combines graph theory with full-stack development to create a practical learning support platform.
 
-🧠 Visualize collaboration networks
+---
 
-🧩 Provide mentor/peer suggestions
+## Key Features
 
-🛠 Built with React + Flask + Docker
+### 1. Study Partner Recommendation
+- Uses Jaccard similarity for matching users  
+- Displays match percentage  
+- Suggests mentor or peer roles  
+- Recommends learning resources  
 
-This platform is built for students who want personalized guidance, structured learning, and smart collaboration.
+---
 
-🎯 Features
-⭐ 1. Smart Study Pal Recommendation
+### 2. Performance Dashboard
+- Tracks total skills  
+- Shows average proficiency  
+- Identifies strongest skill  
+- Provides class vs user comparison  
+- Includes level progression  
 
-Uses graph similarity (Jaccard Score) to match peers
+---
 
-Shows match percentage
+### 3. Learning Roadmap
+- Personalized daily study plan  
+- Estimated time to level up  
+- Milestone tracking  
+- Content recommendations  
 
-Suggests mentor or peer roles
+---
 
-Provides recommended resources (YouTube + blogs)
+### 4. Graph Visualizations
+- User collaboration network  
+- Skill relationship graph  
+- Combined visualization  
+- Interactive graph representation  
 
-📊 2. My Stats Dashboard
+---
 
-Shows total skills
+### 5. Teacher Dashboard
+- View overall class performance  
+- Analyze student skill distribution  
+- Identify students needing support  
+- Recommend mentors  
 
-Average proficiency
+---
 
-Strongest skill
+## Tech Stack
 
-Class vs You comparison
+### Frontend
+- React (Vite)
+- Tailwind CSS
+- Recharts
+- React Router
 
-Earned badges
+### Backend
+- Python
+- Flask
+- Flask-CORS
+- NetworkX
+- NumPy
 
-Level progression
+### Deployment
+- Docker
+- Docker Compose
 
-🧭 3. AI Recommended Roadmap
+---
 
-Daily hours
+## Project Structure
 
-Days to level up
 
-Next milestone
-
-Personalized content recommendations
-
-🖼 4. Graph Visualizations
-
-Network graph (user + best matches)
-
-Skill graph
-
-Combined graph
-
-Animated node interactions
-
-👨‍🏫 5. Teacher View
-
-Check overall class performance
-
-Track student skill distributions
-
-Identify who needs help
-
-View recommended mentors
-
-🏗️ Tech Stack
-Frontend
-
-React
-
-Vite
-
-TailwindCSS
-
-Recharts
-
-Lucide React
-
-React Router
-
-Backend
-
-Python
-
-Flask
-
-Flask-CORS
-
-NetworkX (graph algorithms)
-
-NumPy
-
-Deployment (Docker-Ready)
-
-Dockerfile for frontend
-
-Dockerfile for backend
-
-docker-compose.yml to run both together
-
-📁 Folder Structure (Important)
 skill-sync/
 │
 ├── server/
-│   ├── server.py
-│   ├── users.json
-│   ├── requirements.txt
-│   ├── Dockerfile
+│ ├── server.py
+│ ├── users.json
+│ ├── requirements.txt
+│ ├── Dockerfile
 │
 ├── src/
-│   ├── components/
-│   ├── pages/
-│   ├── context/
-│   ├── data/
-│   ├── App.jsx
-│   ├── main.jsx
+│ ├── components/
+│ ├── pages/
+│ ├── context/
+│ ├── data/
+│ ├── App.jsx
+│ ├── main.jsx
 │
 ├── public/
-│
-├── Dockerfile           (Frontend)
+├── Dockerfile
 ├── docker-compose.yml
 ├── package.json
 
-🐳 Run With Docker (Judges will love this)
-1. Build & Run Everything
+
+---
+
+## Running the Project
+
+### Using Docker
+
+
 docker-compose up --build
 
-2. Frontend
 
-Runs on:
-👉 http://localhost:5173/
+Access:
+- Frontend: http://localhost:5173  
+- Backend: http://localhost:5000  
 
-3. Backend
+---
 
-Runs on:
-👉 http://localhost:5000/
+### Without Docker
 
-▶️ Run Without Docker (Normal Mode)
-Backend
+#### Backend
+
 cd server
 pip install -r requirements.txt
 python server.py
 
-Frontend
+
+#### Frontend
+
 npm install
 npm run dev
 
-📌 API Endpoints
-🔹 /recommend
 
-Returns best study matches based on skills.
+---
 
-🔹 /roadmap
+## API Endpoints
 
-Returns learning roadmap with daily goal, days to level up, milestone.
+- `/recommend` → Returns study partner recommendations  
+- `/roadmap` → Returns personalized roadmap  
+- `/graph-data` → Returns graph data for visualization  
 
-🔹 /graph-data
+---
 
-Returns nodes + edges for visualization.
+## Key Highlights
 
-🏆 Hackathon Value Proposition
-Feature	Benefit
-Graph-based matching	Highly accurate peer recommendations
-Roadmap automation	Personalized learning path
-My Stats	Shows real-time skill growth
-Teacher View	Helps educators track class performance
-Docker Deploy	Plug-and-run for judges
-✨ Authors
+- Uses graph algorithms for real-world recommendation  
+- Personalized learning support system  
+- Full-stack implementation  
+- Ready for deployment using Docker  
 
-Dhanush R S (Full Stack Developer)
-Hackathon Project – SkillSync
-Graph-Based AI Recommendation System
+---
+
+## Author
+
+Dhanush R S  
+GitHub: https://github.com/dhanushgowdars
