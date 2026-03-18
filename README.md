@@ -106,7 +106,19 @@ skill-sync/
 ├── docker-compose.yml
 ├── package.json
 
+## Screenshots
 
+### Home Page
+![Home](https://raw.githubusercontent.com/dhanushgowdars/skill-sync---graph-based-recommendation-for-study-pals/main/home.png)
+
+### Dashboard
+![Dashboard](https://raw.githubusercontent.com/dhanushgowdars/skill-sync---graph-based-recommendation-for-study-pals/main/dashboard.png)
+
+### Study Partner Recommendation
+![Find Pals](https://raw.githubusercontent.com/dhanushgowdars/skill-sync---graph-based-recommendation-for-study-pals/main/find_pals.png)
+
+### My Stats
+![Stats](https://raw.githubusercontent.com/dhanushgowdars/skill-sync---graph-based-recommendation-for-study-pals/main/my_stats.png)
 ---
 
 ## Running the Project
